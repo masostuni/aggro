@@ -129,13 +129,19 @@
             margin-bottom: 20px;
         }
 
-        #event-list div {
+        #event-list .event-box {
             margin-bottom: 10px;
             padding: 15px;
             background-color: var(--mediterranean-sand);
             border-radius: 5px;
             border: 1px solid var(--mediterranean-olive);
             box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+        }
+
+        #event-list .event-box:hover {
+            background-color: var(--mediterranean-olive);
+            color: var(--mediterranean-white);
         }
 
         #search-form {
@@ -174,6 +180,39 @@
             font-size: 18px;
             margin-top: 10px;
         }
+
+        /* Event details styles */
+        #event-details {
+            display: none;
+            position: fixed;
+            top: 20%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--mediterranean-sand);
+            padding: 20px;
+            border: 1px solid var(--mediterranean-olive);
+            border-radius: 5px;
+            box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+
+        #event-details.visible {
+            display: block;
+        }
+
+        #event-details button {
+            background-color: var(--mediterranean-blue);
+            color: var(--mediterranean-white);
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        #event-details button:hover {
+            background-color: #005f8d;
+        }
     </style>
 </head>
 <body>
@@ -193,12 +232,20 @@
     <div id="app">
         <h1>Ricerca Eventi</h1>
         <div id="search-form">
+            <select id="api-selector">
+                <option value="eventbrite">Eventbrite</option>
+                <option value="ticketmaster">Ticketmaster</option>
+                <option value="eventful">Eventful</option>
+                <option value="meetup">Meetup</option>
+                <option value="google-places">Google Places</option>
+            </select>
             <input type="text" id="search-input" placeholder="Cerca eventi...">
             <button id="search-button">Cerca</button>
         </div>
         <div id="map"></div>
         <div id="event-list"></div>
         <div id="loading-message" style="display: none;">Caricamento...</div>
+        <div id="event-details"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
@@ -212,23 +259,69 @@
         const map = L.map('map').setView([40.7352, 17.5770], 13);  // Centrata su Ostuni, BR
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        // Funzione per recuperare eventi da un'API (da sostituire con una vera API)
-        async function fetchEvents(query) {
-            const apiUrl = 'https://example.com/api/events';  // Sostituisci con l'URL della tua API
-            const city = 'Ostuni, BR';  // Filtro città imposto
+        // Funzioni per recuperare eventi da API diverse
+        async function fetchEventsFromEventbrite(query) {
+            const apiUrl = `https://www.eventbriteapi.com/v3/events/search/?q=${encodeURIComponent(query)}&location.address=Ostuni&token=YOUR_EVENTBRITE_API_TOKEN`;
             try {
-                const response = await fetch(`${apiUrl}?search=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}`);
-                if (!response.ok) {
-                    throw new Error('Errore nel recupero degli eventi');
-                }
-                const events = await response.json();
-                return events;
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error('Errore nel recupero degli eventi');
+                const data = await response.json();
+                return data.events || [];
             } catch (error) {
                 console.error('Errore:', error);
-                document.getElementById('event-list').innerHTML = '<div>Errore nel recupero degli eventi. Riprova più tardi.</div>';
                 return [];
-            } finally {
-                document.getElementById('loading-message').style.display = 'none';
+            }
+        }
+
+        async function fetchEventsFromTicketmaster(query) {
+            const apiUrl = `https://app.ticketmaster.com/discovery/v2/events.json?keyword=${encodeURIComponent(query)}&city=Ostuni&apikey=YOUR_TICKETMASTER_API_KEY`;
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error('Errore nel recupero degli eventi');
+                const data = await response.json();
+                return data._embedded.events || [];
+            } catch (error) {
+                console.error('Errore:', error);
+                return [];
+            }
+        }
+
+        async function fetchEventsFromEventful(query) {
+            const apiUrl = `http://api.eventful.com/json/events/search?app_key=YOUR_EVENTFUL_API_KEY&keywords=${encodeURIComponent(query)}&location=Ostuni`;
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error('Errore nel recupero degli eventi');
+                const data = await response.json();
+                return data.events.event || [];
+            } catch (error) {
+                console.error('Errore:', error);
+                return [];
+            }
+        }
+
+        async function fetchEventsFromMeetup(query) {
+            const apiUrl = `https://api.meetup.com/find/events?key=YOUR_MEETUP_API_KEY&text=${encodeURIComponent(query)}&location=Ostuni`;
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error('Errore nel recupero degli eventi');
+                const data = await response.json();
+                return data.events || [];
+            } catch (error) {
+                console.error('Errore:', error);
+                return [];
+            }
+        }
+
+        async function fetchEventsFromGooglePlaces(query) {
+            const apiUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?keyword=${encodeURIComponent(query)}&location=40.7352,17.5770&radius=5000&key=YOUR_GOOGLE_PLACES_API_KEY`;
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) throw new Error('Errore nel recupero degli eventi');
+                const data = await response.json();
+                return data.results || [];
+            } catch (error) {
+                console.error('Errore:', error);
+                return [];
             }
         }
 
@@ -244,31 +337,93 @@
             eventList.innerHTML = '';
 
             events.forEach(event => {
-                // Aggiungi alla mappa
-                const marker = L.marker([event.lat, event.lon]).addTo(map);
-                marker.bindPopup(`<b>${event.name}</b><br>${event.date}<br>${event.location}`);
+                let lat, lon, name, date, location;
+                if (event.venue) {
+                    lat = event.venue.latitude || event.venue.lat;
+                    lon = event.venue.longitude || event.venue.lon;
+                    name = event.name.text || event.name;
+                    date = event.start.local || event.date;
+                    location = event.venue.address.localized_address_display || event.venue.address;
+                } else if (event.geometry) {
+                    lat = event.geometry.location.lat;
+                    lon = event.geometry.location.lng;
+                    name = event.name;
+                    date = event.start_time || 'Data non disponibile';
+                    location = event.vicinity || 'Indirizzo non disponibile';
+                }
 
-                // Aggiungi alla lista
-                const eventElement = document.createElement('div');
-                eventElement.innerHTML = `<strong>${event.name}</strong><br>${event.date}<br>${event.location}`;
-                eventList.appendChild(eventElement);
+                // Aggiungi alla mappa
+                if (lat && lon) {
+                    const marker = L.marker([lat, lon]).addTo(map);
+                    marker.bindPopup(`<b>${name}</b><br>${date}<br>${location}`);
+
+                    // Aggiungi alla lista
+                    const eventElement = document.createElement('div');
+                    eventElement.className = 'event-box';
+                    eventElement.innerHTML = `<strong>${name}</strong><br>${date}<br>${location}`;
+                    eventElement.addEventListener('click', () => showEventDetails({name, date, location}));
+                    eventList.appendChild(eventElement);
+                }
             });
 
             if (events.length > 0) {
-                map.fitBounds(events.map(event => [event.lat, event.lon]));
+                map.fitBounds(events.map(event => [event.venue.latitude || event.geometry.location.lat, event.venue.longitude || event.geometry.location.lng]));
             }
+        }
+
+        // Funzione per mostrare i dettagli dell'evento
+        function showEventDetails(event) {
+            const details = document.getElementById('event-details');
+            details.innerHTML = `
+                <h2>${event.name}</h2>
+                <p>${event.date}</p>
+                <p>${event.location}</p>
+                <button onclick="hideEventDetails()">Chiudi</button>
+            `;
+            details.classList.add('visible');
+        }
+
+        function hideEventDetails() {
+            document.getElementById('event-details').classList.remove('visible');
         }
 
         // Gestione della ricerca
         document.getElementById('search-button').addEventListener('click', async () => {
             const query = document.getElementById('search-input').value;
+            const apiSelector = document.getElementById('api-selector').value;
             document.getElementById('loading-message').style.display = 'block';
-            const events = await fetchEvents(query);
-            displayEvents(events);
+
+            let events = [];
+            try {
+                switch (apiSelector) {
+                    case 'eventbrite':
+                        events = await fetchEventsFromEventbrite(query);
+                        break;
+                    case 'ticketmaster':
+                        events = await fetchEventsFromTicketmaster(query);
+                        break;
+                    case 'eventful':
+                        events = await fetchEventsFromEventful(query);
+                        break;
+                    case 'meetup':
+                        events = await fetchEventsFromMeetup(query);
+                        break;
+                    case 'google-places':
+                        events = await fetchEventsFromGooglePlaces(query);
+                        break;
+                    default:
+                        throw new Error('API non selezionata');
+                }
+                displayEvents(events);
+            } catch (error) {
+                console.error('Errore durante la ricerca degli eventi:', error);
+            } finally {
+                document.getElementById('loading-message').style.display = 'none';
+            }
         });
 
         // Carica eventi iniziali
-        fetchEvents('').then(displayEvents);
+        fetchEventsFromEventbrite('').then(displayEvents);
     </script>
 </body>
 </html>

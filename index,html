@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aggregatore di Eventi</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        #map {
+            height: 400px;
+            margin-bottom: 20px;
+        }
+        #event-form, #event-list {
+            margin-bottom: 20px;
+        }
+        #event-list div {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>Aggregatore di Eventi</h1>
+        <div id="map"></div>
+        <div id="event-form">
+            <h2>Aggiungi Evento</h2>
+            <form id="add-event-form">
+                <input type="text" id="event-name" placeholder="Nome Evento" required>
+                <input type="text" id="event-location" placeholder="Località" required>
+                <input type="datetime-local" id="event-date" required>
+                <button type="submit">Aggiungi Evento</button>
+            </form>
+        </div>
+        <div id="event-list"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script>
+        // Inizializza la mappa
+        const map = L.map('map').setView([41.9028, 12.4964], 6);  // Centrata sull'Italia
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        // Funzione per geocodificare un indirizzo
+        async function geocodeAddress(address) {
+            try {
+                const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+                if (response.data && response.data.length > 0) {
+                    return {
+                        lat: parseFloat(response.data[0].lat),
+                        lon: parseFloat(response.data[0].lon)
+                    };
+                }
+            } catch (error) {
+                console.error('Errore durante la geocodifica:', error);
+            }
+            return null;
+        }
+
+        // Gestione del form per l'aggiunta di eventi
+        document.getElementById('add-event-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('event-name').value;
+            const location = document.getElementById('event-location').value;
+            const date = document.getElementById('event-date').value;
+
+            const coordinates = await geocodeAddress(location);
+            if (coordinates) {
+                const event = { name, location, date, lat: coordinates.lat, lon: coordinates.lon };
+                saveEvent(event);
+                addEventToMap(event);
+                addEventToList(event);
+                e.target.reset();
+            } else {
+                alert('Impossibile geocodificare l\'indirizzo fornito.');
+            }
+        });
+
+        // Salva l'evento nel localStorage
+        function saveEvent(event) {
+            let events = JSON.parse(localStorage.getItem('events')) || [];
+            events.push(event);
+            localStorage.setItem('events', JSON.stringify(events));
+        }
+
+        // Aggiungi l'evento alla mappa
+        function addEventToMap(event) {
+            const marker = L.marker([event.lat, event.lon]).addTo(map);
+            marker.bindPopup(`<b>${event.name}</b><br>${event.date}`);
+        }
+
+        // Aggiungi l'evento alla lista
+        function addEventToList(event) {
+            const eventList = document.getElementById('event-list');
+            const eventElement = document.createElement('div');
+            eventElement.textContent = `${event.name} - ${event.date} (${event.location})`;
+            eventList.appendChild(eventElement);
+        }
+
+        // Carica gli eventi salvati
+        function loadEvents() {
+            const events = JSON.parse(localStorage.getItem('events')) || [];
+            events.forEach(event => {
+                addEventToMap(event);
+                addEventToList(event);
+            });
+        }
+
+        // Carica i dati iniziali
+        loadEvents();
+    </script>
+</body>
+</html>

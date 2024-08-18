@@ -3,119 +3,272 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aggregatore di Eventi</title>
+    <title>Ricerca Eventi</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
+        /* Base styles */
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Georgia', serif;
             margin: 0;
+            padding: 0;
+            color: #333;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #app {
             padding: 20px;
         }
+
+        /* Mediterranean-inspired colors */
+        :root {
+            --mediterranean-blue: #0077b6;
+            --mediterranean-sand: #f2e9e1;
+            --mediterranean-olive: #b08968;
+            --mediterranean-white: #ffffff;
+        }
+
+        /* Header and menu styles */
+        header {
+            background-color: var(--mediterranean-blue);
+            color: var(--mediterranean-white);
+            padding: 10px 20px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .menu-toggle {
+            display: none;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+        }
+
+        ul li {
+            margin-left: 20px;
+        }
+
+        ul li a {
+            text-decoration: none;
+            color: var(--mediterranean-white);
+            font-size: 18px;
+        }
+
+        ul li a:hover {
+            text-decoration: underline;
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            nav {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            ul {
+                display: none;
+                flex-direction: column;
+                width: 100%;
+                background-color: var(--mediterranean-blue);
+            }
+
+            ul li {
+                margin-left: 0;
+                width: 100%;
+                text-align: left;
+                padding: 10px 0;
+                border-top: 1px solid rgba(255, 255, 255, 0.2);
+            }
+
+            ul li a {
+                padding: 10px 20px;
+                display: block;
+            }
+
+            .menu-toggle {
+                display: block;
+            }
+
+            ul.active {
+                display: flex;
+            }
+        }
+
+        /* Map and event list styles */
         #map {
-            height: 400px;
+            height: 300px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        #event-list {
             margin-bottom: 20px;
         }
-        #event-form, #event-list {
-            margin-bottom: 20px;
-        }
+
         #event-list div {
             margin-bottom: 10px;
-            padding: 10px;
-            background-color: #f0f0f0;
+            padding: 15px;
+            background-color: var(--mediterranean-sand);
             border-radius: 5px;
+            border: 1px solid var(--mediterranean-olive);
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        #search-form {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        #search-input {
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid var(--mediterranean-olive);
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        #search-button {
+            padding: 10px;
+            background-color: var(--mediterranean-blue);
+            color: var(--mediterranean-white);
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        #search-button:hover {
+            background-color: #005f8d;
+        }
+
+        #loading-message {
+            text-align: center;
+            color: var(--mediterranean-blue);
+            font-size: 18px;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
+    <header>
+        <nav>
+            <div class="logo">Eventi Ostuni</div>
+            <div class="menu-toggle" id="menu-toggle">☰</div>
+            <ul id="menu">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#about">Chi Siamo</a></li>
+                <li><a href="#services">Servizi</a></li>
+                <li><a href="#contact">Contatti</a></li>
+            </ul>
+        </nav>
+    </header>
+
     <div id="app">
-        <h1>Aggregatore di Eventi</h1>
-        <div id="map"></div>
-        <div id="event-form">
-            <h2>Aggiungi Evento</h2>
-            <form id="add-event-form">
-                <input type="text" id="event-name" placeholder="Nome Evento" required>
-                <input type="text" id="event-location" placeholder="Località" required>
-                <input type="datetime-local" id="event-date" required>
-                <button type="submit">Aggiungi Evento</button>
-            </form>
+        <h1>Ricerca Eventi</h1>
+        <div id="search-form">
+            <input type="text" id="search-input" placeholder="Cerca eventi...">
+            <button id="search-button">Cerca</button>
         </div>
+        <div id="map"></div>
         <div id="event-list"></div>
+        <div id="loading-message" style="display: none;">Caricamento...</div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script>
-        // Inizializza la mappa
-        const map = L.map('map').setView([41.9028, 12.4964], 6);  // Centrata sull'Italia
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-        // Funzione per geocodificare un indirizzo
-        async function geocodeAddress(address) {
-            try {
-                const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
-                if (response.data && response.data.length > 0) {
-                    return {
-                        lat: parseFloat(response.data[0].lat),
-                        lon: parseFloat(response.data[0].lon)
-                    };
-                }
-            } catch (error) {
-                console.error('Errore durante la geocodifica:', error);
-            }
-            return null;
-        }
-
-        // Gestione del form per l'aggiunta di eventi
-        document.getElementById('add-event-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('event-name').value;
-            const location = document.getElementById('event-location').value;
-            const date = document.getElementById('event-date').value;
-
-            const coordinates = await geocodeAddress(location);
-            if (coordinates) {
-                const event = { name, location, date, lat: coordinates.lat, lon: coordinates.lon };
-                saveEvent(event);
-                addEventToMap(event);
-                addEventToList(event);
-                e.target.reset();
-            } else {
-                alert('Impossibile geocodificare l\'indirizzo fornito.');
-            }
+        // Mobile menu toggle
+        document.getElementById('menu-toggle').addEventListener('click', () => {
+            document.getElementById('menu').classList.toggle('active');
         });
 
-        // Salva l'evento nel localStorage
-        function saveEvent(event) {
-            let events = JSON.parse(localStorage.getItem('events')) || [];
-            events.push(event);
-            localStorage.setItem('events', JSON.stringify(events));
+        // Inizializza la mappa
+        const map = L.map('map').setView([40.7352, 17.5770], 13);  // Centrata su Ostuni, BR
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        // Funzione per recuperare eventi da un'API (da sostituire con una vera API)
+        async function fetchEvents(query) {
+            const apiUrl = 'https://example.com/api/events';  // Sostituisci con l'URL della tua API
+            const city = 'Ostuni, BR';  // Filtro città imposto
+            try {
+                const response = await fetch(`${apiUrl}?search=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}`);
+                if (!response.ok) {
+                    throw new Error('Errore nel recupero degli eventi');
+                }
+                const events = await response.json();
+                return events;
+            } catch (error) {
+                console.error('Errore:', error);
+                document.getElementById('event-list').innerHTML = '<div>Errore nel recupero degli eventi. Riprova più tardi.</div>';
+                return [];
+            } finally {
+                document.getElementById('loading-message').style.display = 'none';
+            }
         }
 
-        // Aggiungi l'evento alla mappa
-        function addEventToMap(event) {
-            const marker = L.marker([event.lat, event.lon]).addTo(map);
-            marker.bindPopup(`<b>${event.name}</b><br>${event.date}`);
-        }
-
-        // Aggiungi l'evento alla lista
-        function addEventToList(event) {
-            const eventList = document.getElementById('event-list');
-            const eventElement = document.createElement('div');
-            eventElement.textContent = `${event.name} - ${event.date} (${event.location})`;
-            eventList.appendChild(eventElement);
-        }
-
-        // Carica gli eventi salvati
-        function loadEvents() {
-            const events = JSON.parse(localStorage.getItem('events')) || [];
-            events.forEach(event => {
-                addEventToMap(event);
-                addEventToList(event);
+        // Funzione per visualizzare gli eventi sulla mappa e nella lista
+        function displayEvents(events) {
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
             });
+
+            const eventList = document.getElementById('event-list');
+            eventList.innerHTML = '';
+
+            events.forEach(event => {
+                // Aggiungi alla mappa
+                const marker = L.marker([event.lat, event.lon]).addTo(map);
+                marker.bindPopup(`<b>${event.name}</b><br>${event.date}<br>${event.location}`);
+
+                // Aggiungi alla lista
+                const eventElement = document.createElement('div');
+                eventElement.innerHTML = `<strong>${event.name}</strong><br>${event.date}<br>${event.location}`;
+                eventList.appendChild(eventElement);
+            });
+
+            if (events.length > 0) {
+                map.fitBounds(events.map(event => [event.lat, event.lon]));
+            }
         }
 
-        // Carica i dati iniziali
-        loadEvents();
+        // Gestione della ricerca
+        document.getElementById('search-button').addEventListener('click', async () => {
+            const query = document.getElementById('search-input').value;
+            document.getElementById('loading-message').style.display = 'block';
+            const events = await fetchEvents(query);
+            displayEvents(events);
+        });
+
+        // Carica eventi iniziali
+        fetchEvents('').then(displayEvents);
     </script>
 </body>
 </html>

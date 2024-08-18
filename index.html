@@ -206,6 +206,13 @@
             border-radius: 5px;
             margin-bottom: 10px;
         }
+
+        /* Google Translate styles */
+        #google_translate_element {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
     </style>
 </head>
 <body>
@@ -225,6 +232,8 @@
         </nav>
     </header>
 
+    <div id="google_translate_element"></div>
+
     <div id="app">
         <h1>Benvenuti a Ostuni Experience</h1>
         <p>Esplora gli eventi e le meraviglie di Ostuni, la Città Bianca. Scopri le nostre esperienze uniche e lasciati ispirare dalla bellezza e dalla cultura di questa incantevole località pugliese.</p>
@@ -239,12 +248,29 @@
         <div id="pinned-events">
             <h2>Eventi Pinnati</h2>
             <div class="event-box">
-                <img src="path/to/your-generated-event-image.jpg" alt="Evento Pinnato">
+                <img src="https://example.com/path/to/your-image1.jpg" alt="Evento Pinnato 1">
                 <strong>Festa di San Giovanni</strong><br>
                 24 Giugno 2024<br>
                 Piazza della Libertà
             </div>
-            <!-- Add more pinned events here -->
+            <div class="event-box">
+                <img src="https://example.com/path/to/your-image2.jpg" alt="Evento Pinnato 2">
+                <strong>Festival della Musica</strong><br>
+                15 Agosto 2024<br>
+                Parco Comunale
+            </div>
+            <div class="event-box">
+                <img src="https://example.com/path/to/your-image3.jpg" alt="Evento Pinnato 3">
+                <strong>Festa della Primavera</strong><br>
+                10 Aprile 2024<br>
+                Villa Comunale
+            </div>
+            <div class="event-box">
+                <img src="https://example.com/path/to/your-image4.jpg" alt="Evento Pinnato 4">
+                <strong>Mercato delle Tradizioni</strong><br>
+                5 Maggio 2024<br>
+                Piazza del Duomo
+            </div>
         </div>
     </div>
 
@@ -259,20 +285,39 @@
         const map = L.map('map').setView([40.7352, 17.5770], 13);  // Centrata su Ostuni, BR
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        // Funzione per recuperare eventi da un'API (da sostituire con una vera API)
+        // API URLs per eventi
+        const apiUrls = [
+            'https://example.com/api/events',  // Sostituisci con l'URL della tua API di eventi
+            'https://api.booking.com/events',  // Booking Attractions API
+            'https://api.airbnb.com/experiences' // Airbnb Experiences API
+        ];
+
+        // Funzione per recuperare eventi da tutte le API
         async function fetchEvents(query) {
-            const apiUrl = 'https://example.com/api/events';  // Sostituisci con l'URL della tua API
             const city = 'Ostuni, BR';  // Filtro città imposto
             try {
-                const response = await fetch(`${apiUrl}?search=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}`);
-                if (!response.ok) {
-                    throw new Error('Errore nel recupero degli eventi');
-                }
-                const events = await response.json();
+                document.getElementById('loading-message').style.display = 'block';
+
+                // Crea un array di Promesse per tutte le API
+                const promises = apiUrls.map(apiUrl => {
+                    // Aggiungi query ai parametri dell'URL se necessario
+                    const url = `${apiUrl}?search=${encodeURIComponent(query)}&city=${encodeURIComponent(city)}`;
+                    return fetch(url).then(response => {
+                        if (!response.ok) {
+                            throw new Error(`Errore nella richiesta a ${apiUrl}`);
+                        }
+                        return response.json();
+                    });
+                });
+
+                // Attendi che tutte le promesse siano completate
+                const results = await Promise.all(promises);
+                // Unisci tutti gli eventi in un unico array
+                const events = results.flat();
                 return events;
             } catch (error) {
                 console.error('Errore:', error);
-                document.getElementById('event-list').innerHTML = '<div>Errore nel recupero degli eventi. Riprova più tardi.</div>';
+                showError('Impossibile recuperare gli eventi.');
                 return [];
             } finally {
                 document.getElementById('loading-message').style.display = 'none';
@@ -306,6 +351,13 @@
             }
         }
 
+        // Funzione per gestire errori
+        function showError(message) {
+            const eventList = document.getElementById('event-list');
+            eventList.innerHTML = `<div>Errore: ${message}. Riprova più tardi.</div>`;
+            document.getElementById('loading-message').style.display = 'none';
+        }
+
         // Gestione della ricerca
         document.getElementById('search-button').addEventListener('click', async () => {
             const query = document.getElementById('search-input').value;
@@ -316,6 +368,12 @@
 
         // Carica eventi iniziali
         fetchEvents('').then(displayEvents);
+
+        // Google Translate
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({pageLanguage: 'it'}, 'google_translate_element');
+        }
     </script>
+    <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 </body>
 </html>
